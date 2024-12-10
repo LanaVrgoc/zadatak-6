@@ -1,0 +1,8 @@
+2024-06-07
+pivo 2 3
+kruh 2 8
+naranca 3 2
+kava 2 4
+lampa 1 3
+laptop 1 9
+riza 3 3

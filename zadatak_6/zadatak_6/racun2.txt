@@ -1,0 +1,6 @@
+2023-04-30
+slika 1 6
+ananas 2 3
+cvijet 1 4
+ananas 1 3
+jabuka 6 1

@@ -1,0 +1,6 @@
+2022-12-20
+naranca 4 2
+jabuka 3 1
+meso 1 5
+jabuka 3 1
+riza 2 3
