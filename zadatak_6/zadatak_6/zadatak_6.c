@@ -1,17 +1,12 @@
 /*
 6. Napisati program koji èita datoteku racuni.txt u kojoj su zapisani nazivi svih datoteka koji
-predstavljaju pojedini raèun.Na poèetku svake datoteke je zapisan datum u kojem vremenu je
+predstavljaju pojedini raèun. Na poèetku svake datoteke je zapisan datum u kojem vremenu je
 raèun izdat u formatu YYYY-MM-DD. Svaki sljedeæi red u datoteci predstavlja artikl u formatu
-naziv, kolièina, cijena.
-
-Potrebno je formirati vezanu listu raèuna sortiranu po datumu. Svaki èvor vezane liste sadržava 
-vezanu listu artikala sortiranu po nazivu artikla. 
-
-Nakon toga potrebno je omoguæiti upit kojim æe korisnik saznati koliko je novaca sveukupno potrošeno na specifièni
+naziv, kolièina, cijena. Potrebno je formirati vezanu listu raèuna sortiranu po datumu. Svaki èvor
+vezane liste sadržava vezanu listu artikala sortiranu po nazivu artikla. Nakon toga potrebno je
+omoguæiti upit kojim æe korisnik saznati koliko je novaca sveukupno potrošeno na specifièni
 artikl u odreðenom vremenskom razdoblju i u kojoj je kolièini isti kupljen.
-
 */
-
 #define _CRT_SECURE_NO_WARNINGS
 #include <stdio.h>
 #include <string.h>
@@ -47,16 +42,17 @@ typedef struct _listReceipt {
     positionList next;
 }listReceipt;
 
+
 int createListReceipt(positionList head, char list[MAX]);
-int readFile(positionList headList, positionReceipt haedReceipt, int temp);
-int createReceipt(positionReceipt headReceipt, char receiptDate[DATE_LENGTH+1], FILE *file);
-//int insertSorted(positionReceipt headReceipt, positionReceipt newReceipt);
-int createArticle( positionArticle headArticle, char name[MAX], int quant, int price);
+int readFile(positionList headList, positionReceipt* headReceipt, int temp);
+int createReceipt(positionReceipt* headReceipt, char receiptDate[DATE_LENGTH + 1], FILE* file);
+int insertSorted(positionReceipt* headReceipt, positionReceipt newReceipt);
+int createArticle(positionArticle headArticle, char name[MAX], int quant, int price);
 int outputArticle(positionArticle headArticle);
 int deleteArticle(positionArticle headArticle, char name[MAX], positionArticle tempArt);
 positionArticle findPrev(positionArticle head, char name[MAX], positionArticle tempArt);
-int receiptBetweenDates(char newArticle[MAX], char dateStart[MAX], char dateEnd[MAX], positionReceipt headReceipt);
-int findArticle(positionArticle headArticle, char newArticle[MAX]);
+int receiptBetweenDates(char newArticle[MAX], char dateStart[MAX], char dateEnd[MAX], positionReceipt headReceipt, int* pTotalPrice);
+int findArticle(positionArticle headArticle, char newArticle[MAX], int*pTotalPrice);
 
 
 int main()
@@ -68,7 +64,6 @@ int main()
         printf("Datoteka se ne moze otvoriti");
         return ERROR_OPENING_FILE;
     }
-    printf("datoteka se otvorila!\n");
 
     positionList headList = NULL;
     headList = (positionList)malloc(sizeof(listReceipt));
@@ -96,31 +91,37 @@ int main()
     }
     headReceipt->next = NULL;
 
+
     for (int i = 0; i < 5; i++)
     {
-        readFile(headList, headReceipt, i);
+        readFile(headList, &headReceipt, i);
     }
-
 
     printf("\n\n\nUPIT\n\n");
     printf("Unesite artikl: ");
     char newArticle[MAX];
     fgets(newArticle, MAX, stdin);
-    printf("%s", newArticle);
+    newArticle[strcspn(newArticle, "\n")] = '\0'; 
 
     printf("Pocetni datum (oblika YYYYMMDD): ");
-    char dateStart[DATE_LENGTH+1];
-    fgets(dateStart, DATE_LENGTH+1, stdin);
-    printf("%s", dateStart);
+    char dateStart[DATE_LENGTH + 1];
+    fgets(dateStart, DATE_LENGTH + 1, stdin);
+    dateStart[strcspn(dateStart, "\n")] = '\0'; 
 
     printf("\nZavrsni datum (oblika YYYYMMDD): ");
     char dateEnd[DATE_LENGTH + 1];
-    scanf(" %[^\n]%*c", dateEnd);
-    printf("%s", dateEnd);
+    if (scanf(" %c", dateEnd) < 0)
+    {
+        printf("\nGreska!\n");
+        return EXIT_FAILURE;
+    }
 
-    int totalPrice, totalQuant;
-    totalQuant = receiptBetweenDates(newArticle, dateStart, dateEnd, headReceipt);
-    printf("\n%d", totalQuant);
+    int totalQuant;
+    int totalPrice;
+    int* pTotalPrice = &totalPrice;
+    totalQuant = receiptBetweenDates(newArticle, dateStart, dateEnd, headReceipt, pTotalPrice);
+
+    printf("\nukupna kolicina: %d, ukupna cijena: %u", totalQuant, (* pTotalPrice) * totalQuant);
 
     return 0;
 }
@@ -143,7 +144,7 @@ int createListReceipt(positionList head, char list[MAX])
     return EXIT_SUCCESS;
 }
 
-int readFile(positionList headList, positionReceipt headReceipt, int temp)
+int readFile(positionList headList, positionReceipt* headReceipt, int temp)
 {
     if (temp < 0 || temp > 4)
         return EXIT_FAILURE;
@@ -166,19 +167,19 @@ int readFile(positionList headList, positionReceipt headReceipt, int temp)
     }
 
     FILE* fileReceipt = fopen(file, "r");
-    if (!fileReceipt) 
+    if (!fileReceipt)
     {
         printf("Datoteka se ne moze otvoriti");
         return ERROR_OPENING_FILE;
     }
 
     char buffer[1024];
-    char receiptDate[DATE_LENGTH+1] = {0};
+    char receiptDate[DATE_LENGTH + 1] = { 0 };
     if (fscanf(fileReceipt, " %s", buffer) == 1)
     {
         int iDate = 0;
         int i = 0;
-        while (buffer[i] && iDate < DATE_LENGTH )
+        while (buffer[i] && iDate < DATE_LENGTH)
         {
             if (buffer[i] >= '0' && buffer[i] <= '9')
             {
@@ -187,125 +188,169 @@ int readFile(positionList headList, positionReceipt headReceipt, int temp)
             }
             i++;
         }
-        
+
     }
 
     createReceipt(headReceipt, receiptDate, fileReceipt);
     return EXIT_SUCCESS;
 }
 
-int createReceipt(positionReceipt headReceipt, char receiptDate[DATE_LENGTH+1], FILE* file)
+int createReceipt(positionReceipt* headReceipt, char receiptDate[DATE_LENGTH + 1], FILE* file)
 {
-    positionReceipt newReceipt = NULL;
-    newReceipt = (positionReceipt)malloc(sizeof(receipt));
-    if (newReceipt == NULL)
+    positionReceipt newReceipt = (positionReceipt)malloc(sizeof(receipt));
+    if (!newReceipt)
     {
-        printf("pogreska prilikom alokacije memorije\n");
+        printf("Greška: neuspjela alokacija memorije za novi raèun.\n");
         return ERROR_OPENING_FILE;
     }
-    newReceipt->next = headReceipt->next;
-    headReceipt->next = newReceipt;
-    strcpy(newReceipt->receiptDate, receiptDate);
 
-    positionArticle headArticle = NULL;
-    headArticle = (positionArticle)malloc(sizeof(article));
-    if (headArticle == NULL)
+    strcpy(newReceipt->receiptDate, receiptDate);
+    newReceipt->articleHead = (positionArticle)malloc(sizeof(article));
+    if (!newReceipt->articleHead)
     {
-        printf("Pogreska prilikom alokacije memorije\n");
+        printf("Greška: neuspjela alokacija memorije za èlanke.\n");
+        free(newReceipt);
         return ERROR_OPENING_FILE;
     }
-    headArticle->next = NULL;
-    newReceipt->articleHead = headArticle;
+    newReceipt->articleHead->next = NULL;
+
     char name[MAX];
     int quant, price;
-    printf("\n%s", newReceipt->receiptDate);
     while (fscanf(file, " %s %d %d", name, &quant, &price) == 3)
     {
-        createArticle(headArticle, name, quant, price);
+        createArticle(newReceipt->articleHead, name, quant, price);
     }
-    
-   
 
-    outputArticle(headArticle);
+    newReceipt->next = (*headReceipt)->next;
+    (*headReceipt)->next = newReceipt;
 
+    printf("\n\n");
 
-    printf("\n");
-
-    //insertSorted(headReceipt, newReceipt);
-
+    outputArticle(newReceipt->articleHead);
     return EXIT_SUCCESS;
 }
-/*
-int insertSorted(positionReceipt headReceipt, positionReceipt newReceipt)
+
+int insertSorted(positionReceipt* headReceipt, positionReceipt newReceipt)
 {
-    positionReceipt temp = headReceipt;
-    if (!temp->next)
-        printf("nema temp->next");
- 
-    while (temp->next && strcmp(temp->next->receiptDate, newReceipt->receiptDate)>0)
+    positionReceipt current = *headReceipt;
+
+    while (current->next && strcmp(current->next->receiptDate, newReceipt->receiptDate) < 0)
     {
-        temp = temp->next;
+        current = current->next;
     }
 
-    newReceipt->next = temp->next;
-    temp->next = newReceipt;
+    newReceipt->next = current->next;
+    current->next = newReceipt;
 
     return EXIT_SUCCESS;
 }
-*/
+
+int receiptBetweenDates(char newArticle[MAX], char dateStart[MAX], char dateEnd[MAX], positionReceipt headReceipt, int* pTotalPrice)
+{
+    int totalQuantity = 0;
+    char receiptDate[DATE_LENGTH + 1] = { 0 };
+
+    positionReceipt currentReceipt = headReceipt->next;
+
+    while (currentReceipt)
+    {
+        strncpy(receiptDate, currentReceipt->receiptDate, DATE_LENGTH);
+        receiptDate[DATE_LENGTH] = '\0'; 
+
+        if (strcmp(receiptDate, dateStart) >= 0 && strcmp(receiptDate, dateEnd) <= 0)
+        {
+            totalQuantity += findArticle(currentReceipt->articleHead, newArticle, pTotalPrice);
+        }
+
+        currentReceipt = currentReceipt->next;
+    }
+
+    return totalQuantity;
+}
+
+int findArticle(positionArticle headArticle, char newArticle[MAX], int* pTotalPrice)
+{
+    int quantity = 0;
+    positionArticle currentArticle = headArticle->next;
+
+    while (currentArticle)
+    {
+        if (strcmp(currentArticle->name, newArticle) == 0)
+        {
+            quantity += currentArticle->quant;
+            *pTotalPrice = currentArticle->price;
+        }
+        currentArticle = currentArticle->next;
+    }
+
+    return quantity;
+}
 int createArticle(positionArticle headArticle, char name[MAX], int quant, int price)
 {
     positionArticle newArticle = NULL;
+
     newArticle = (positionArticle)malloc(sizeof(article));
-    if (newArticle == NULL)
+    if (!newArticle)
     {
-        printf("pogreska prilikom alokacije memorije\n");
+        printf("Greška prilikom alokacije memorije.\n");
         return ERROR_OPENING_FILE;
     }
-    newArticle->next = headArticle->next;
-    headArticle->next = newArticle;
-
 
     strcpy(newArticle->name, name);
-    newArticle->price = price;
     newArticle->quant = quant;
-    
-    positionArticle temp = headArticle->next;
-    while (temp)
+    newArticle->price = price;
+
+    positionArticle current = headArticle->next;
+    while (current)
     {
-        if (strcmp(temp->name, newArticle->name) == 0 && (temp->next != newArticle->next))
+        if (strcmp(current->name, newArticle->name) == 0)
         {
-            newArticle->quant += temp->quant;
-            deleteArticle(headArticle, name, newArticle);
+            current->quant += newArticle->quant;
+            free(newArticle); 
             return EXIT_SUCCESS;
         }
-        temp = temp->next;
+        current = current->next;
     }
+
+    newArticle->next = headArticle->next;
+    headArticle->next = newArticle;
 
     return EXIT_SUCCESS;
 }
 
 int outputArticle(positionArticle headArticle)
 {
-    positionArticle temp = headArticle->next;
-    while (temp)
+    positionArticle current = headArticle->next;
+
+    if (!current)
     {
-        printf("\n\t%s %d %d", temp->name, temp->quant, temp->price);
-        temp = temp->next;
+        printf("Lista artikala je prazna.\n");
+        return EXIT_FAILURE;
     }
+
+    printf("Artikli:\n");
+    while (current)
+    {
+        printf("Naziv: %s, Kolicina: %d, Cijena: %d\n", current->name, current->quant, current->price);
+        current = current->next;
+    }
+
     return EXIT_SUCCESS;
 }
 
 int deleteArticle(positionArticle headArticle, char name[MAX], positionArticle tempArt)
 {
     positionArticle prev = findPrev(headArticle, name, tempArt);
-    if (prev == NULL || prev->next == NULL) {
-        printf("Element nije pronaden.\n");
+
+    if (!prev || !prev->next)
+    {
+        printf("Artikl s imenom '%s' nije pronaðen.\n", name);
         return EXIT_FAILURE;
     }
-    positionArticle elementToDelete = prev->next;
-    prev->next = elementToDelete->next;
-    free(elementToDelete);
+
+    positionArticle toDelete = prev->next;
+    prev->next = toDelete->next;
+    free(toDelete);
 
     return EXIT_SUCCESS;
 }
@@ -315,63 +360,15 @@ positionArticle findPrev(positionArticle head, char name[MAX], positionArticle t
     positionArticle prev = head;
     positionArticle current = head->next;
 
-    while (current && (strcmp(current->name, name) != 0 || (tempArt->next == current->next)))
+    while (current)
     {
+        if (strcmp(current->name, name) == 0 && current->next == tempArt->next)
+        {
+            return prev;
+        }
         prev = current;
-        if(current->next)
         current = current->next;
     }
 
-    if (current) return prev;
     return NULL;
-}
-
-int receiptBetweenDates(char newArticle[MAX], char dateStart[MAX], char dateEnd[MAX], positionReceipt headReceipt)
-{
-    printf("uslo u prvu");
-    int quant = 0;
-    char receiptD[DATE_LENGTH + 1] = {0};
-    
-    positionReceipt tempReceipt = headReceipt->next;
-    int j = 0;
-    while(tempReceipt && j < 5)
-    {
-        for (int i = 0; i < DATE_LENGTH; i++)
-        {
-            receiptD[i] = tempReceipt->receiptDate[i];
-        }
-        printf("\n%s", receiptD);
-
-        if (strcmp(receiptD, dateStart) > 0 && strcmp(receiptD, dateEnd) < 0)
-        {
-            printf("\nPROVJERA");
-            quant += findArticle(tempReceipt->articleHead, newArticle);
-            tempReceipt = tempReceipt->next;
-        }
-        if(tempReceipt->next)
-        tempReceipt = tempReceipt->next;
-
-        j++;
-
-    }
-    return quant;
-    
-        
-}
-
-int findArticle(positionArticle headArticle, char newArticle[MAX])
-{
-    positionArticle tempArt = headArticle->next;
-    printf("uslo u drugu");
-    while (tempArt)
-    {
-        printf("provjera");
-        if (strcmp(tempArt->name, newArticle) == 0)
-        {
-            printf("\nisto");
-            return tempArt->quant;
-        }
-        tempArt = tempArt->next;
-    }
-    return 0;
 }
